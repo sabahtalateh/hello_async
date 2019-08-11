@@ -85,8 +85,7 @@ fn main() {
                     io::read_to_end(socket, vec![])
                         // Drop the socket
                         .and_then(move |(_, buf)| {
-                            tx.send(buf.len())
-                                .map_err(|e| io::ErrorKind::Other.into())
+                            tx.send(buf.len()).map_err(|e| io::ErrorKind::Other.into())
                         })
                         .map(|_| ())
                         // Write any error to STDOUT
