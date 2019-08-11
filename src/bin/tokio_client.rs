@@ -16,8 +16,6 @@
 //!     cargo run --bin hello_world
 //!
 
-extern crate tokio;
-
 use std::net::SocketAddr;
 use tokio::io;
 use tokio::net::TcpStream;

@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate futures;
 
-use futures::{Future, Poll, Async};
+use futures::{Async, Future, Poll};
 use std::fmt;
 
 //
@@ -39,7 +39,7 @@ fn main() {
     let future = Display(HelloWorld);
     tokio::run(future);
 
-    // Same as before
+    // Same as previous
     let future = HelloWorld.map(|value| {
         println!("{}", value);
     });
