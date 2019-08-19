@@ -7,6 +7,40 @@
 //!
 //! https://tokio.rs/docs/futures/spawning/#coordinating-access-to-a-resource
 //!
+//! Sample Output
+//!
+//!     cargo run --bin tokio_ping_pong_2
+//! [0] entering ping
+//! [0] entering recv_pong delay 9.361s
+//! [1] entering ping
+//! [1] entering recv_pong delay 4.854s
+//! [2] entering ping
+//! [2] entering recv_pong delay 4.719s
+//! [3] entering ping
+//! [3] entering recv_pong delay 8.182s
+//! [4] entering ping
+//! [4] entering recv_pong delay 9.642s
+//! [5] entering ping
+//! [5] entering recv_pong delay 2.676s
+//! [8] entering ping
+//! [8] entering recv_pong delay 5.149s
+//! [6] entering ping
+//! [6] entering recv_pong delay 7.299s
+//! [9] entering ping
+//! [9] entering recv_pong delay 5.908s
+//! [7] entering ping
+//! [7] entering recv_pong delay 273ms
+//! [7] >>> rtt = 275.67322ms
+//! [5] >>> rtt = 2.679343764s
+//! [2] >>> rtt = 4.72073866s
+//! [1] >>> rtt = 4.855222603s
+//! [8] >>> rtt = 5.149836229s
+//! [9] >>> rtt = 5.910623536s
+//! [6] >>> rtt = 7.301647815s
+//! [3] >>> rtt = 8.183006022s
+//! [0] >>> rtt = 9.363908809s
+//! [4] >>> rtt = 9.644285966s
+//!
 
 use futures::future::lazy;
 use futures::{future, Future, Sink, Stream};
@@ -15,8 +49,8 @@ use std::io;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
+use tokio::sync::oneshot::{Receiver, Sender};
 use tokio::timer::Delay;
-use tokio::sync::oneshot::{Sender, Receiver};
 
 const TRANSPORT_MAX_DELAY: Duration = Duration::from_secs(0);
 const TRANSPORT_MIN_DELAY: Duration = Duration::from_secs(10);
@@ -30,7 +64,10 @@ struct Transport {
 
 impl Transport {
     fn new(min_delay: Duration, max_delay: Duration) -> Transport {
-        Transport { min_delay, max_delay }
+        Transport {
+            min_delay,
+            max_delay,
+        }
     }
 
     fn default() -> Transport {
@@ -45,7 +82,8 @@ impl Transport {
         print!("[{}] entering recv_pong", thread_id);
 
         let mut rng = rand::thread_rng();
-        let wait_millis: u64 = rng.gen_range(self.min_delay.as_millis(), self.max_delay.as_millis()) as u64;
+        let wait_millis: u64 =
+            rng.gen_range(self.min_delay.as_millis(), self.max_delay.as_millis()) as u64;
         let delay = Duration::from_millis(wait_millis);
 
         println!(" delay {:?}", delay);
@@ -66,25 +104,27 @@ fn coordinator_task(rx: mpsc::Receiver<Message>) -> impl Future<Item = (), Error
 
         transport.send_ping(&thread_id);
 
-        let fut = transport.recv_pong(&thread_id).map_err(|_| ()).and_then(move |_| {
-            let rtt = start.elapsed();
-            r_tx.send(rtt).unwrap();
-            Ok(())
-        });
+        let fut = transport
+            .recv_pong(&thread_id)
+            .map_err(|_| ())
+            .and_then(move |_| {
+                let rtt = start.elapsed();
+                r_tx.send(rtt).unwrap();
+                Ok(())
+            });
         tokio::spawn(fut)
     })
 }
 
-fn rtt(thread_id: &usize, tx: mpsc::Sender<Message>) -> impl Future<Item = (Duration, mpsc::Sender<Message>), Error = ()> {
-    let (r_tx, r_rx) : (Sender<Duration>, Receiver<Duration>) = oneshot::channel();
+fn rtt(
+    thread_id: &usize,
+    tx: mpsc::Sender<Message>,
+) -> impl Future<Item = (Duration, mpsc::Sender<Message>), Error = ()> {
+    let (r_tx, r_rx): (Sender<Duration>, Receiver<Duration>) = oneshot::channel();
 
     tx.send((*thread_id, r_tx))
         .map_err(|_| ())
-        .and_then(|tx| {
-            r_rx
-                .map_err(|_| ())
-                .map(|d| (d, tx))
-        })
+        .and_then(|tx| r_rx.map_err(|_| ()).map(|d| (d, tx)))
 }
 
 fn main() {

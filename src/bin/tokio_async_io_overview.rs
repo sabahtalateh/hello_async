@@ -1,13 +1,12 @@
-use tokio::net::TcpListener;
-use futures::{Stream, Future};
+use futures::{Future, Stream};
 use tokio::io::AsyncRead;
+use tokio::net::TcpListener;
 
 fn main() {
     let addr = "127.0.0.1:7777".parse().unwrap();
 
     // Set up a listening socket, just like in std::net
-    let listener = TcpListener::bind(&addr)
-        .expect("unable to bind TCP listener");
+    let listener = TcpListener::bind(&addr).expect("unable to bind TCP listener");
 
     // Listen for incoming connections.
     // This is similar to the iterator of incoming connections that
@@ -42,11 +41,13 @@ fn main() {
             // copies all the data from the read half to the write half.
             let (reader, writer) = socket.split();
             let bytes_copied = tokio::io::copy(reader, writer);
-            let handle_conn = bytes_copied.map(|amt| {
-                println!("wrote {:?} bytes", amt);
-            }).map_err(|e| {
-                eprintln!("I/O error {:?}", e);
-            });
+            let handle_conn = bytes_copied
+                .map(|amt| {
+                    println!("wrote {:?} bytes", amt);
+                })
+                .map_err(|e| {
+                    eprintln!("I/O error {:?}", e);
+                });
 
             // handle_conn here is still a Future, so it hasn't actually
             // done any work yet. We *could* return it here; then for_each
